@@ -41,6 +41,29 @@ public class AuthApi {
     private final SmsService smsService;
     private final UserRepository userRepository;
     private final DeviceIdResolver deviceIdResolver;
+    
+    // 회원 수정 (이메일 + 패스워드만 받아서 수정)
+    @PostMapping("/modify")
+    public ResponseEntity<ApiResponseDTO> modify(@RequestBody User user){
+        // 이메일로 회원 조회
+        Optional<User> foundUser = userRepository.findByUserEmail(user.getUserEmail());
+
+        if (foundUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponseDTO.of("등록된 회원이 아닙니다."));
+        }
+
+        // 찾은 회원에 패스워드 인코딩해서 설정
+        User existingUser = foundUser.get();
+        String encodedPassword = passwordEncoder.encode(user.getUserPassword());
+        existingUser.setUserPassword(encodedPassword);
+        
+        // save
+        userRepository.save(existingUser);
+        
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("비밀번호가 변경되었습니다"));
+    }
+
     // 로그인
     @PostMapping("login")
     public ResponseEntity<ApiResponseDTO> login(
@@ -60,7 +83,7 @@ public class AuthApi {
                     .body(ApiResponseDTO.of("비밀번호가 일치하지 않습니다."));
         }
 
-        if (Boolean.TRUE.equals(foundUser.getUserIsLogin())) {
+        if (foundUser.getUserIsLogin() != null && foundUser.getUserIsLogin() == 1) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(ApiResponseDTO.of("이미 로그인 되어 있습니다."));
         }
@@ -92,7 +115,7 @@ public class AuthApi {
         authService.saveRefreshToken(tokenDTO);
 
 //        리턴 직전 == 로그인 직전에 로그인 상태 true로 변경
-        foundUser.setUserIsLogin(true);
+        foundUser.setUserIsLogin(1);
         userRepository.save(foundUser);
         return ResponseEntity
                 .status(HttpStatus.OK)
@@ -139,6 +162,7 @@ public class AuthApi {
         ApiResponseDTO response = smsService.sendAuthentificationCodeBySms(phoneNumber, session);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
+
     // 이메일로 인증코드 전송
     @PostMapping("/codes/email")
     public ResponseEntity<ApiResponseDTO> sendAuthentificationCodeByEmail(String toEmail, HttpSession session) {
@@ -153,6 +177,15 @@ public class AuthApi {
         String authentificationCode = (String)session.getAttribute("authentificationCode");
         verified.put("verified", authentificationCode.equals(userAuthentificationCode));
         return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("인증코드 확인 완료", verified));
+    }
+
+    @GetMapping("/exists/cehck-email")
+    public ResponseEntity<ApiResponseDTO> existsCheckEmail(String email) {
+        boolean isExistEmail = userService.existsByUserEmail(email);
+        if(isExistEmail){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponseDTO.of("이미 존재하는 이메일", false));
+        }
+        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("사용 가능한 이메일", true));
     }
 }
 

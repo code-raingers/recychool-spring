@@ -38,4 +38,6 @@ public interface UserService {
   public void withdraw(Long id);
 
   public void modifyUserIsLogin(Long userId);
+
+  public boolean findUserByUserNameAndUserPhone(String userName, String userPhone);
 }

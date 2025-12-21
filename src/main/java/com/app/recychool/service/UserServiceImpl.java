@@ -139,6 +139,15 @@ public class UserServiceImpl implements UserService {
     public void modifyUserIsLogin(Long userId){
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserException("유저를 찾을 수 없습니다."));
-        user.setUserIsLogin(false);
+        user.setUserIsLogin(0);
+    }
+
+    @Override
+    public boolean findUserByUserNameAndUserPhone(String userName, String userPhone) {
+//      이름 + 전화번호로 조회된 회원이 없다 == 회원가입한 적 없음 => false 리턴
+        if(userRepository.findUserEmailByUserNameAndUserPhone(userName, userPhone).isEmpty()){
+            return false;
+        }
+        return true;
     }
 }
