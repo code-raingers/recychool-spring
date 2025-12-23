@@ -123,6 +123,12 @@ public interface ReserveRepository extends JpaRepository<Reserve, Long> {
             @Param("order") Integer order
     );
 
-
+    @Query("""
+        SELECT r
+        FROM Reserve r
+        WHERE r.reserveStatus = com.app.recychool.domain.enums.ReserveStatus.COMPLETED
+          AND r.endDate < :today
+    """)
+    public  List<Reserve> findCompletedAndExpired(@Param("today") LocalDate today);
 
 }

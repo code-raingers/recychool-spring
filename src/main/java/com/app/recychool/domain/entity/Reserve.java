@@ -63,9 +63,12 @@ public class Reserve {
         this.reserveStatus = ReserveStatus.CANCELED;
     }
 
-    public void expire() {
+    public void expire(LocalDate today) {
         if (this.reserveStatus != ReserveStatus.COMPLETED) return;
-        this.reserveStatus = ReserveStatus.EXPIRED;
+
+        if (this.endDate.isBefore(today)) {
+            this.reserveStatus = ReserveStatus.EXPIRED;
+        }
     }
 
     public void decreaseWaitingOrder() {
