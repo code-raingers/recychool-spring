@@ -10,7 +10,6 @@ import java.util.List;
 public interface PaymentService {
 
     PaymentCompleteResponseDTO completePayment(PaymentCompleteRequestDTO requestDTO);
-
-    PaymentPageResponseDTO getReserve(Long reserveId);
+    PaymentPageResponseDTO getReserve(Long reserveId, boolean extend);
 
 }
