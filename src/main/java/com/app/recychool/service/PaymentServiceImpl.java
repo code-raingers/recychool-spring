@@ -15,6 +15,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+
 @Service
 @Transactional(rollbackFor = Exception.class)
 @RequiredArgsConstructor
@@ -32,11 +34,22 @@ public class PaymentServiceImpl implements PaymentService {
                         new IllegalArgumentException("예약이 존재하지 않습니다. reserveId=" + requestDTO.getReserveId())
                 );
 
-        //  서버 기준 결제 가능 상태 검증
-        if (reserve.getReserveStatus() != ReserveStatus.PENDING) {
-            throw new PaymentAlreadyProcessedException(
-                    "결제 가능한 상태가 아닙니다. reserveStatus=" + reserve.getReserveStatus()
-            );
+        // 2) 서버 기준 결제 가능 상태 검증
+        if (!requestDTO.isExtend()) {
+            if (reserve.getReserveStatus() != ReserveStatus.PENDING) {
+                throw new PaymentAlreadyProcessedException(
+                        "결제 가능한 상태가 아닙니다. reserveStatus=" + reserve.getReserveStatus()
+                );
+            }
+        } else {
+            if (reserve.getReserveType() != ReserveType.PARKING) {
+                throw new PaymentAlreadyProcessedException("연장 결제는 주차 예약만 가능합니다.");
+            }
+            if (reserve.getReserveStatus() != ReserveStatus.COMPLETED) {
+                throw new PaymentAlreadyProcessedException(
+                        "연장 가능한 상태가 아닙니다. reserveStatus=" + reserve.getReserveStatus()
+                );
+            }
         }
 
         // 3) 결제 중복 정책
@@ -54,7 +67,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-
+        // 4) impUid 중복 차단
         if (paymentRepository.existsByImpUid(requestDTO.getImpUid())) {
             throw new PaymentAlreadyProcessedException(
                     "이미 처리된 결제입니다. impUid=" + requestDTO.getImpUid()
@@ -74,7 +87,9 @@ public class PaymentServiceImpl implements PaymentService {
         Payment saved = paymentRepository.save(payment);
 
         // 6) 예약 상태 업데이트
-        reserve.setReserveStatus(ReserveStatus.COMPLETED);
+        if (!requestDTO.isExtend()) {
+            reserve.setReserveStatus(ReserveStatus.COMPLETED);
+        }
 
         return new PaymentCompleteResponseDTO(
                 saved.getId(),
@@ -84,17 +99,27 @@ public class PaymentServiceImpl implements PaymentService {
         );
     }
 
+
     @Override
-    public PaymentPageResponseDTO getReserve(Long reserveId) {
+    public PaymentPageResponseDTO getReserve(Long reserveId, boolean extend) {
 
         Reserve reserve = reserveRepository.findById(reserveId)
                 .orElseThrow(() -> new IllegalArgumentException("예약이 존재하지 않습니다."));
 
+        LocalDate start = reserve.getStartDate();
+        LocalDate end = reserve.getEndDate();
+
+        //  PARKING + extend=true면 (기존 종료일+1) ~ (그로부터 1개월)
+        if (extend && reserve.getReserveType() == ReserveType.PARKING) {
+            start = end.plusDays(1);
+            end = start.plusMonths(1);
+        }
+
         return new PaymentPageResponseDTO(
                 reserve.getId(),
                 reserve.getReserveType().name(),
-                reserve.getStartDate().toString(),
-                reserve.getEndDate().toString(),
+                start.toString(),
+                end.toString(),
                 reserve.getReservePrice(),
                 reserve.getSchool().getId(),
                 reserve.getUser().getUserName(),

@@ -23,9 +23,11 @@ public class PaymentApi {
     }
 
     @GetMapping("/page")
-    public ResponseEntity<ApiResponseDTO> getReserve(@RequestParam Long reserveId){
-        return ResponseEntity.status(HttpStatus.OK).body(ApiResponseDTO.of("예약 내역 조회 성공", paymentService.getReserve(reserveId)));
+    public ResponseEntity<ApiResponseDTO> getReserve(
+            @RequestParam Long reserveId,
+            @RequestParam(required = false, defaultValue = "false") boolean extend
+    ) {
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(ApiResponseDTO.of("예약 내역 조회 성공", paymentService.getReserve(reserveId, extend)));
     }
-
-
 }
